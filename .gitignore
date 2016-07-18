@@ -1,0 +1,8 @@
+update_OLCI_RUT_DB.sh~
+update_OLCI_RUT_DB.sh
+*.nc
+*.pyc
+.pydevproject
+.project
+OLCI_RUT_DB_archive
+
