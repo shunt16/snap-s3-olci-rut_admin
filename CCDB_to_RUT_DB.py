@@ -16,8 +16,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy import exp
 
 
-'''----------------------------- Constants --------------------------------'''
-
+'''----------------------------- Parameters --------------------------------'''
 #Sceince
 Q = 1.6E-19
 
@@ -28,7 +27,7 @@ PXL_AREA = PXL_SIZE**2*10**4
 N_PXL_TOT = 576
 DARK_NOISE = [0.731, 0.779, 0.852, 0.929, 0.971, 1.102, 1.284, 1.465]
 
-#SPECTRAL
+#Spectral
 LS =  array([[400.0, 412.5, 442.5, 490.0, 510.0, 560.0, 620.0, 
               665.0, 673.75, 681.25, 708.75, 753.75, 761.25, 
               764.375, 767.50, 778.75, 865.0, 885.0, 900.0, 
@@ -53,7 +52,7 @@ LS_SM= array([1040., 1040., 1040., 1040., 1040.])
 L_MAX = 1040.
 L_MIN = 390.
 
-#Error contributors
+#UNcertainty contributors
 U_DIFFCHAR = 0.0025 #Diffuser Characterisation Error
 U_DIFFMOD = 0.0056 # Diffuser Model Error
 U_DIFFALIGN = 0.0010 # Diffuser Alignment Error
@@ -73,6 +72,12 @@ E_INL = 0.0015
 E_DNL = 0.406
 I = 1.59 # Dark Current Density
 
+#Radiometric Model Signal Values
+X_SM_L_REF = 8.8
+X_REF = array([3307.7, 3755.1, 3764.5, 2548.3, 2479.0, 1728.0, 1364.5, 
+               1256.8, 937.8, 1103.5, 1073.5, 814.9, 236.3, 285.5, 414.3, 
+               1503.3, 751.6, 332.1, 292.1, 224.5, 495.8])
+              
 class CCDB_Data():
     
     def __init__(self, directory=None, **kwargs):
@@ -118,16 +123,18 @@ class CCDB_Data():
         self.time_grp["t_int"] = [None, "Integration time of olci image [SCCDB]", "s", None]
         self.time_grp["t_trans"] = [None, "Integration time of olci image [SCCDB]", "s", None]
         
-        #OLCI-RUT parameters group
-        self.rut_grp = OrderedDict()
-        self.rut_grp["grp_def"] = ["OLCI-RUT parameters", "olci_rut_parameters"]
-        self.rut_grp["C_RSs"] = [None, "Radiance to CCD signal coefficient [calculated from SCCDB]", "", ("mod", "band")]
-        self.rut_grp["digi_steps"] =[None, "Coefficient to propagate signal through the VAM [calculated from SCCDB]", "", ("mod", "band")]
-        self.rut_grp["digi_steps_sm"] = [None, "Coefficient to propagate smear signal through the VAM [calculated from SCCDB]", "", ("mod",)]
-        self.rut_grp["DSs"] = [None, "Dark signal per band [calculated from SCCDB]", "", ("mod", "band")]
-        self.rut_grp["DSs_sm"] = [None, "Dark signal of smear band [calculated from SCCDB]", "", ("mod",)]
-        self.rut_grp["OCL_steps"] = [None, "OCL coefficient to propagate signal through the VAM [calculated from SCCDB]", "", ("mod", "band")]
-        self.rut_grp["OCL_steps_sm"] = [None, "OCL coefficient to propagate smear signal through the VAM [calculated from SCCDB]", "", ("mod",)]
+        #OLCI simulator parameters group
+        self.sim_grp = OrderedDict()
+        self.sim_grp["grp_def"] = ["OLCI Simulator parameters", "olci_sim_parameters"]
+        self.sim_grp["C_RSs"] = [None, "Radiance to CCD signal coefficient [calculated from SCCDB]", "", ("mod", "band")]
+        self.sim_grp["digi_steps"] =[None, "Coefficient to propagate signal through the VAM [calculated from SCCDB]", "", ("mod", "band")]
+        self.sim_grp["digi_steps_sm"] = [None, "Coefficient to propagate smear signal through the VAM [calculated from SCCDB]", "", ("mod",)]
+        self.sim_grp["DSs"] = [None, "Dark signal per band [calculated from SCCDB]", "", ("mod", "band")]
+        self.sim_grp["DSs_sm"] = [None, "Dark signal of smear band [calculated from SCCDB]", "", ("mod",)]
+        self.sim_grp["OCL_steps"] = [None, "OCL coefficient to propagate signal through the VAM [calculated from SCCDB]", "", ("mod", "band")]
+        self.sim_grp["OCL_steps_sm"] = [None, "OCL coefficient to propagate smear signal through the VAM [calculated from SCCDB]", "", ("mod",)]
+        self.sim_grp["X_sm_L_ref"] = [X_SM_L_REF, "Smear signal at reference radiance, L_ref [TAS OLCI Radiometric Model]", "e-", None]
+        self.sim_grp["X_ref"] = [X_REF, "Signal due to TOA radiance value of L_ref [TAS OLCI Radiometric Model]", "e-", ("band",)]
 
         #OLCI unc parameters group
         self.unc_grp = OrderedDict()
@@ -229,22 +236,22 @@ class CCDB_Data():
                                                                                         self.smear_band_grp['gain_nums_sm'][0])      
         ''' --------------------- OLCI-RUT Parameters -------------------- '''
         # digi_steps(_sm) - Coeff to propagate CCD values through VAM
-        self.rut_grp['digi_steps'][0], self.rut_grp['digi_steps_sm'][0] = self.calc_digi_steps(char_grp,
+        self.sim_grp['digi_steps'][0], self.sim_grp['digi_steps_sm'][0] = self.calc_digi_steps(char_grp,
                                                                                                self.band_grp['gains'][0],
                                                                                                self.smear_band_grp['gains_sm'][0])
         # OCL_digi_step(_sm) - Coeff with OCL
-        self.rut_grp['OCL_steps'][0], self.rut_grp['OCL_steps_sm'][0] = self.calc_OCL_steps(self.rut_grp['digi_steps'][0], 
-                                                                                            self.rut_grp['digi_steps_sm'][0],
+        self.sim_grp['OCL_steps'][0], self.sim_grp['OCL_steps_sm'][0] = self.calc_OCL_steps(self.sim_grp['digi_steps'][0], 
+                                                                                            self.sim_grp['digi_steps_sm'][0],
                                                                                             self.band_grp['gain_nums'][0],
                                                                                             self.smear_band_grp['gain_nums_sm'][0])
         # DS - Dark signal
-        self.rut_grp['DSs'][0] = self.calc_DS(char_grp, self.band_grp['ls'][0],
+        self.sim_grp['DSs'][0] = self.calc_DS(char_grp, self.band_grp['ls'][0],
                                               self.time_grp['t_frame'][0])
-        self.rut_grp['DSs_sm'][0] = self.calc_DS(char_grp, self.smear_band_grp['ls_sm'][0],
+        self.sim_grp['DSs_sm'][0] = self.calc_DS(char_grp, self.smear_band_grp['ls_sm'][0],
                                                  self.time_grp['t_frame'][0])
         
         # C_RS - Coefficient to convert radiance to CCD signal
-        self.rut_grp['C_RSs'][0] = self.calc_C_RS(char_grp, self.time_grp['t_int'][0])
+        self.sim_grp['C_RSs'][0] = self.calc_C_RS(char_grp, self.time_grp['t_int'][0])
         
         # Close CCDB char data
         char_grp.close()
@@ -277,8 +284,8 @@ class CCDB_Data():
         self.unc_grp["b_DNL"][0] = self.calc_b_DNL(self.unc_grp["a_DNL"][0],
                                                    X_cals)
         
-        self.unc_grp["a_off"][0] = self.calc_a_off(self.rut_grp['digi_steps'][0],
-                                                   self.rut_grp['OCL_steps'][0],
+        self.unc_grp["a_off"][0] = self.calc_a_off(self.sim_grp['digi_steps'][0],
+                                                   self.sim_grp['OCL_steps'][0],
                                                    self.band_grp['n_ubands'][0],
                                                    self.band_grp['n_pxls'][0],
                                                    self.smear_band_grp['n_pxls_sm'][0],
@@ -358,7 +365,7 @@ class CCDB_Data():
             write_grp(f, self.smear_band_grp)
             write_grp(f, self.CCD_grp)
             write_grp(f, self.time_grp)
-            write_grp(f, self.rut_grp)
+            write_grp(f, self.sim_grp)
             write_grp(f, self.unc_grp)
             f.close()
         return 0
@@ -394,7 +401,7 @@ class CCDB_Data():
         write_grp(rootgrp, self.smear_band_grp)
         write_grp(rootgrp, self.CCD_grp)
         write_grp(rootgrp, self.time_grp)
-        write_grp(rootgrp, self.rut_grp)
+        write_grp(rootgrp, self.sim_grp)
         write_grp(rootgrp, self.unc_grp)
 
         return 0
