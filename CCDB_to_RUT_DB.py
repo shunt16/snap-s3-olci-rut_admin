@@ -53,19 +53,16 @@ L_MAX = 1040.
 L_MIN = 390.
 
 #UNcertainty contributors
-U_DIFFCHAR = 0.0025 #Diffuser Characterisation Error
-U_DIFFMOD = 0.0056 # Diffuser Model Error
-U_DIFFALIGN = 0.0010 # Diffuser Alignment Error
-U_CALISTR = 0.00016 # Calibration Straylight Error
-U_POSTCALISTR = 0.002 # Post-Calibration Strayligh Error
-U_CALISPECK = 0.002 # Calibration Speckle Error
+U_DIFFCHAR = 0.25 #Diffuser Characterisation Uncertainty
+U_DIFFMOD = 0.56 # Diffuser Model Uncertainty
+U_DIFFALIGN = 0.10 # Diffuser Alignment Uncertainty
+U_CALISTR = 0.016 # Calibration Straylight Uncertainty
+U_POSTCALISTR = 0.2 # Post-Calibration Strayligh Uncertainty
+U_CALISPECK = 0.2 # Calibration Speckle Uncertainty
 
-U_INSTAGE = array([0.000800000, 0.000783871, 0.000745161, 0.000683871,
-                   0.000658065, 0.000593548, 0.000516129, 0.000458065, 
-                   0.000446774, 0.000437097, 0.000401613, 0.000343548, 
-                   0.000333871, 0.000329839, 0.000325806, 0.000311290, 
-                   0.000200000, 0.000174194, 0.000154839, 0.000103226, 
-                   0.000000000])
+U_INSTAGE = array([0.0000, 0.0103, 0.0155, 0.0174, 0.0200, 0.0311, 0.0326,
+                   0.0330, 0.0334, 0.0344, 0.0402, 0.0437, 0.0447, 0.0458,
+                   0.0516, 0.0594, 0.0658, 0.0684, 0.0745, 0.0784, 0.0800])
 
 #Instrument parameters
 E_INL = 0.0015
@@ -73,10 +70,10 @@ E_DNL = 0.406
 I = 1.59 # Dark Current Density
 
 #Radiometric Model Signal Values
-X_SM_L_REF = 8.8
-X_REF = array([3307.7, 3755.1, 3764.5, 2548.3, 2479.0, 1728.0, 1364.5, 
-               1256.8, 937.8, 1103.5, 1073.5, 814.9, 236.3, 285.5, 414.3, 
-               1503.3, 751.6, 332.1, 292.1, 224.5, 495.8])
+X_SM_L_REF = 130
+X_REF = array([2849.651844, 3815.993253, 3380.393722, 2735.758333, 2611.313339, 1391.296667, 1287.530556, 1018.381649,
+               917.3878071, 1094.605395, 907.8913197, 681.1220706, 196.4128665, 238.283934, 350.5487433, 1224.480039,
+               609.6697502, 262.7735882, 264.1851091, 169.3447858, 206.8094571])
               
 class CCDB_Data():
     
@@ -649,7 +646,8 @@ class CCDB_Data():
             for band, l in enumerate(ls[mod,:]):
                 u_ccdstab = 0.15*(C4*l**4 + C3*l**3 + C2*l**2 + C1*l + C0)
                 u_ccdstabs[mod, band] = u_ccdstab
-        return (u_ccdstabs/(3**0.5))**2
+
+        return (u_ccdstabs*100/(3**0.5))**2
 
     def calc_u_diffage(self, ls, a):
         """Return absolute radiometric uncertainty contribution caused by
@@ -670,14 +668,14 @@ class CCDB_Data():
                     u_diffage = 0.0   
                 u_diffages[mod, band] = u_diffage
     
-        return u_diffages
+        return u_diffages*100
     
     def calc_a_DNL(self, n_ubands, n_ub_pxls, n_ub_pxls_sm, gains, gains_sm):
         a_DNL = zeros((5,21))
         
         for mod, (gain_sm, n_ub_pxl_sm) in enumerate(zip(gains_sm, n_ub_pxls_sm)):
             for band, (n_ub, n_ub_pxl, gain) in enumerate(zip(n_ubands, n_ub_pxls[mod,:], gains[mod,:])):
-                a_DNL[mod, band] = E_DNL**2 * n_ub * (1 + ((gain/gain_sm)*(n_ub_pxl/n_ub_pxl_sm))**2)
+                a_DNL[mod, band] = (100*E_DNL)**2 * n_ub * (1 + ((gain/gain_sm)*(n_ub_pxl/n_ub_pxl_sm))**2)
 
         return a_DNL
     
@@ -692,10 +690,9 @@ class CCDB_Data():
     
     def calc_a_off(self, DSs, OCL_steps, n_ubands, n_pxls, n_pxls_sm, gains, gains_sm):
         a_off = zeros((5,21))
-        
         for mod, (gain_sm, n_pxl_sm) in enumerate(zip(gains_sm, n_pxls_sm)):
             for band, (n_ub, n_pxl, gain, DS, OCL_step) in enumerate(zip(n_ubands, n_pxls[mod,:], gains[mod,:], DSs[mod, :], OCL_steps[mod, :])):
-                a_off[mod, band] = (OCL_step**2/4*DS**2) * n_ub * (1 + ((gain/gain_sm)*(n_pxl/n_pxl_sm))**2)
+                a_off[mod, band] = (100*(OCL_step/(2*DS)) * n_ub**0.5 * (1 + ((gain/gain_sm)*(n_pxl/n_pxl_sm))**2)**0.5 )**2
 
         return a_off
     
@@ -735,7 +732,9 @@ class CCDB_Data():
         
         for mod, (gain_sm, n_ub_pxl_sm) in enumerate(zip(gains_sm, n_ub_pxls_sm)):
             for band, (n_ub, Im_x, n_ub_pxl, gain) in enumerate(zip(n_ubands, Im_xs, n_ub_pxls[mod,:], gains[mod,:])):
-                Im_sm = p2p_sm * (gain/gain_sm)/(n_ub_pxl/n_ub_pxl_sm)
+                Im_sm = p2p_sm * (gain/gain_sm)*(n_ub_pxl/n_ub_pxl_sm)
+                if mod==1:
+                    print Im_sm
                 a_PS[mod, band] = ((n_ub**0.5 * Im_x)**2 * (n_ub * Im_sm)**2) / 3
 
         return a_PS
@@ -761,7 +760,7 @@ class CCDB_Data():
         A = [0.0023, 0.0022, 0.0021, 0.002, 0.0009, 0.0006, 0.0004, 0]
         for mod, n_pxl_sm in enumerate(n_pxls_sm):
             for band, (n_pxl, gain_num) in enumerate(zip(n_pxls[mod,:], gain_nums[mod,:])):
-                a_SGR[mod, band] = (gR[gain_num]*n_pxl/n_pxl_sm)**2*(D[gain_num]**2+A[gain_num]**2)        
+                a_SGR[mod, band] = (100*gR[gain_num]*n_pxl/n_pxl_sm)**2*(D[gain_num]**2+A[gain_num]**2)        
         
         return a_SGR
     
@@ -790,7 +789,7 @@ class CCDB_Data():
         return c_SGR
     
     def calc_a_INL(self):
-        return E_INL**2
+        return (100*E_INL)**2
     
     def calc_b_INL(self, n_pxls, n_pxls_sm, gains, gains_sm):
         
